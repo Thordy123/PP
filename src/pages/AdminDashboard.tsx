@@ -29,32 +29,57 @@ import {
   PieChart,
   CalendarDays
 } from 'lucide-react';
-import { QRScanner } from '../components/QRScanner';
+import { EntryValidationSystem } from '../components/EntryValidationSystem';
+import { useAppStore } from '../store/AppStore';
 
 export const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'home' | 'dashboard' | 'spots' | 'bookings' | 'reviews' | 'reports' | 'settings'>('home');
-  const [showQRScanner, setShowQRScanner] = useState(false);
-  const [scanResult, setScanResult] = useState<string | null>(null);
+  const [showValidationSystem, setShowValidationSystem] = useState(false);
+  
+  const { parkingSpots, bookings, user } = useAppStore();
+  
+  // Filter spots owned by current user
+  const mySpots = parkingSpots.filter(spot => spot.ownerId === user?.id);
+  const myBookings = bookings.filter(booking => 
+    mySpots.some(spot => spot.id === booking.spotId)
+  );
 
   const stats = [
-    { label: 'Today\'s Revenue', value: '$1,240', change: '+15%', icon: DollarSign, color: 'text-green-600' },
-    { label: 'Active Bookings', value: '24', change: '+8%', icon: Calendar, color: 'text-blue-600' },
-    { label: 'Total Spots', value: '8', change: '0%', icon: MapPin, color: 'text-purple-600' },
-    { label: 'Avg Rating', value: '4.6', change: '+0.2', icon: Star, color: 'text-yellow-600' },
+    { 
+      label: 'Today\'s Revenue', 
+      value: `$${myBookings.reduce((sum, booking) => sum + booking.totalCost, 0)}`, 
+      change: '+15%', 
+      icon: DollarSign, 
+      color: 'text-green-600' 
+    },
+    { 
+      label: 'Active Bookings', 
+      value: myBookings.filter(b => b.status === 'active').length.toString(), 
+      change: '+8%', 
+      icon: Calendar, 
+      color: 'text-blue-600' 
+    },
+    { 
+      label: 'Total Spots', 
+      value: mySpots.length.toString(), 
+      change: '0%', 
+      icon: MapPin, 
+      color: 'text-purple-600' 
+    },
+    { 
+      label: 'Avg Rating', 
+      value: mySpots.length > 0 ? (mySpots.reduce((sum, spot) => sum + spot.rating, 0) / mySpots.length).toFixed(1) : '0', 
+      change: '+0.2', 
+      icon: Star, 
+      color: 'text-yellow-600' 
+    },
   ];
 
-  const todayBookings = [
-    { id: 'B001', customer: 'John Doe', spot: 'Central Plaza A1', time: '09:00-17:00', status: 'active', vehicle: 'ABC-123' },
-    { id: 'B002', customer: 'Sarah Johnson', spot: 'Central Plaza B2', time: '14:00-18:00', status: 'pending', vehicle: 'XYZ-789' },
-    { id: 'B003', customer: 'Mike Wilson', spot: 'Airport Express C3', time: '08:00-20:00', status: 'completed', vehicle: 'DEF-456' },
-  ];
-
-  const handleQRScan = (data: string) => {
-    setScanResult(data);
-    setShowQRScanner(false);
-    // Process the scanned data here
-    console.log('Scanned data:', data);
-  };
+  const todayBookings = myBookings.filter(booking => {
+    const today = new Date().toDateString();
+    const bookingDate = new Date(booking.startTime).toDateString();
+    return bookingDate === today;
+  });
 
   const HomeSection = () => (
     <div className="space-y-6">
@@ -71,21 +96,11 @@ export const AdminDashboard: React.FC = () => {
             Scan customer QR codes or enter PIN for parking entry validation
           </p>
           <button
-            onClick={() => setShowQRScanner(true)}
+            onClick={() => setShowValidationSystem(true)}
             className="bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors text-lg"
           >
             Open Scanner
           </button>
-          
-          {scanResult && (
-            <div className="mt-4 p-4 bg-green-50 rounded-lg">
-              <div className="flex items-center justify-center space-x-2 text-green-800">
-                <CheckCircle className="h-5 w-5" />
-                <span className="font-medium">Entry Validated</span>
-              </div>
-              <p className="text-sm text-green-700 mt-1">Code: {scanResult}</p>
-            </div>
-          )}
         </div>
       </div>
 
@@ -96,43 +111,56 @@ export const AdminDashboard: React.FC = () => {
           <span className="text-sm text-gray-500">{new Date().toLocaleDateString()}</span>
         </div>
         
-        <div className="space-y-3">
-          {todayBookings.map((booking) => (
-            <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex-1">
-                <div className="flex items-center space-x-3">
-                  <span className="font-medium text-gray-900">{booking.customer}</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    booking.status === 'active' ? 'bg-green-100 text-green-800' :
-                    booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {booking.status}
-                  </span>
+        {todayBookings.length > 0 ? (
+          <div className="space-y-3">
+            {todayBookings.map((booking) => {
+              const spot = mySpots.find(s => s.id === booking.spotId);
+              return (
+                <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3">
+                      <span className="font-medium text-gray-900">Booking {booking.id}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        booking.status === 'active' ? 'bg-green-100 text-green-800' :
+                        booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {booking.status}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      {spot?.name} • {new Date(booking.startTime).toLocaleTimeString()} - {new Date(booking.endTime).toLocaleTimeString()} • ${booking.totalCost}
+                    </div>
+                  </div>
+                  <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                    <MoreHorizontal className="h-4 w-4 text-gray-500" />
+                  </button>
                 </div>
-                <div className="text-sm text-gray-600 mt-1">
-                  {booking.spot} • {booking.time} • {booking.vehicle}
-                </div>
-              </div>
-              <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                <MoreHorizontal className="h-4 w-4 text-gray-500" />
-              </button>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+            <p>No bookings for today</p>
+          </div>
+        )}
       </div>
 
       {/* Quick Actions */}
       <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-2 gap-4">
+          <Link
+            to="/admin/add-spot"
+            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Plus className="h-6 w-6 text-blue-600" />
+            <span className="font-medium">Add Parking Spot</span>
+          </Link>
           <button className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
             <AlertTriangle className="h-6 w-6 text-orange-600" />
             <span className="font-medium">Report Issue</span>
-          </button>
-          <button className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-            <Bell className="h-6 w-6 text-blue-600" />
-            <span className="font-medium">Notifications</span>
           </button>
         </div>
       </div>
@@ -181,6 +209,9 @@ export const AdminDashboard: React.FC = () => {
             <div className="text-center">
               <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-2" />
               <p className="text-gray-500">Revenue chart would be here</p>
+              <p className="text-sm text-gray-400 mt-1">
+                Total Revenue: ${myBookings.reduce((sum, booking) => sum + booking.totalCost, 0)}
+              </p>
             </div>
           </div>
         </div>
@@ -191,6 +222,9 @@ export const AdminDashboard: React.FC = () => {
             <div className="text-center">
               <PieChart className="h-12 w-12 text-gray-400 mx-auto mb-2" />
               <p className="text-gray-500">Booking distribution chart</p>
+              <p className="text-sm text-gray-400 mt-1">
+                Total Bookings: {myBookings.length}
+              </p>
             </div>
           </div>
         </div>
@@ -200,25 +234,32 @@ export const AdminDashboard: React.FC = () => {
       <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
         <div className="space-y-4">
-          {[
-            { time: '2 hours ago', event: 'New booking at Central Plaza Parking', type: 'booking' },
-            { time: '4 hours ago', event: 'Payment received: $150', type: 'payment' },
-            { time: '6 hours ago', event: 'New 5-star review received', type: 'review' },
-            { time: '1 day ago', event: 'Customer extended parking time', type: 'extension' },
-          ].map((activity, index) => (
-            <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-              <div className={`w-2 h-2 rounded-full ${
-                activity.type === 'booking' ? 'bg-blue-600' :
-                activity.type === 'payment' ? 'bg-green-600' :
-                activity.type === 'review' ? 'bg-yellow-600' :
-                'bg-purple-600'
-              }`}></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">{activity.event}</p>
-                <p className="text-xs text-gray-500">{activity.time}</p>
+          {myBookings.slice(0, 4).map((booking, index) => {
+            const spot = mySpots.find(s => s.id === booking.spotId);
+            return (
+              <div key={booking.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                <div className={`w-2 h-2 rounded-full ${
+                  booking.status === 'active' ? 'bg-green-600' :
+                  booking.status === 'pending' ? 'bg-yellow-600' :
+                  'bg-gray-600'
+                }`}></div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    New booking at {spot?.name}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(booking.createdAt).toLocaleString()} • ${booking.totalCost}
+                  </p>
+                </div>
               </div>
+            );
+          })}
+          {myBookings.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <Clock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p>No recent activity</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
@@ -238,57 +279,79 @@ export const AdminDashboard: React.FC = () => {
           </Link>
         </div>
 
-        <div className="space-y-4">
-          {[
-            { id: '1', name: 'Central Plaza Parking', address: '123 Main Street', slots: '12/50', status: 'Active', revenue: '$2,400', enabled: true },
-            { id: '2', name: 'Airport Express Parking', address: '789 Airport Way', slots: '156/800', status: 'Active', revenue: '$8,200', enabled: true },
-            { id: '3', name: 'Downtown Office Complex', address: '456 Business Ave', slots: '0/25', status: 'Disabled', revenue: '$0', enabled: false },
-          ].map((spot, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h4 className="font-semibold text-gray-900">{spot.name}</h4>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      spot.status === 'Active' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {spot.status}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-1">{spot.address}</p>
-                  <div className="flex items-center space-x-4 text-sm text-gray-600">
-                    <span>{spot.slots} available</span>
-                    <span>•</span>
-                    <span>{spot.revenue} this month</span>
+        {mySpots.length > 0 ? (
+          <div className="space-y-4">
+            {mySpots.map((spot) => {
+              const spotBookings = myBookings.filter(b => b.spotId === spot.id);
+              const revenue = spotBookings.reduce((sum, booking) => sum + booking.totalCost, 0);
+              
+              return (
+                <div key={spot.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h4 className="font-semibold text-gray-900">{spot.name}</h4>
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Active
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-1">{spot.address}</p>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <span>{spot.availableSlots}/{spot.totalSlots} available</span>
+                        <span>•</span>
+                        <span>${revenue} total revenue</span>
+                        <span>•</span>
+                        <span>{spotBookings.length} bookings</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Link
+                        to={`/spot/${spot.id}`}
+                        className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                        title="View Details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                      <Link
+                        to={`/admin/edit-spot/${spot.id}`}
+                        className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                        title="Edit Spot"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Link>
+                      <Link
+                        to={`/admin/availability/${spot.id}`}
+                        className="p-2 text-gray-600 hover:text-purple-600 transition-colors"
+                        title="Manage Availability"
+                      >
+                        <CalendarDays className="h-4 w-4" />
+                      </Link>
+                      <button className="p-2 text-gray-600 hover:text-blue-600 transition-colors">
+                        <ToggleRight className="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button className="p-2 text-gray-600 hover:text-blue-600 transition-colors">
-                    <Eye className="h-4 w-4" />
-                  </button>
-                  <Link
-                    to={`/admin/edit-spot/${spot.id}`}
-                    className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Link>
-                  <Link
-                    to={`/admin/availability/${spot.id}`}
-                    className="p-2 text-gray-600 hover:text-purple-600 transition-colors"
-                    title="Manage Availability"
-                  >
-                    <CalendarDays className="h-4 w-4" />
-                  </Link>
-                  <button className="p-2 text-gray-600 hover:text-blue-600 transition-colors">
-                    {spot.enabled ? <ToggleRight className="h-5 w-5" /> : <ToggleLeft className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <MapPin className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No parking spots yet
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Create your first parking spot to start earning revenue
+            </p>
+            <Link
+              to="/admin/add-spot"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Add Your First Spot
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -314,63 +377,72 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Booking ID</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Customer</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Spot</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Vehicle</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Date & Time</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Status</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Amount</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { id: 'BK001', customer: 'John Doe', spot: 'Central Plaza A1', vehicle: 'ABC-123', date: 'Jan 15, 2024', time: '09:00-17:00', status: 'Active', amount: '$200' },
-                { id: 'BK002', customer: 'Sarah Johnson', spot: 'Airport Express B2', vehicle: 'XYZ-789', date: 'Jan 14, 2024', time: '14:00-18:00', status: 'Completed', amount: '$300' },
-                { id: 'BK003', customer: 'Mike Wilson', spot: 'Central Plaza C3', vehicle: 'DEF-456', date: 'Jan 13, 2024', time: '10:00-16:00', status: 'Pending', amount: '$150' },
-              ].map((booking, index) => (
-                <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-4 font-mono text-sm">{booking.id}</td>
-                  <td className="py-3 px-4 text-gray-900">{booking.customer}</td>
-                  <td className="py-3 px-4 text-gray-600">{booking.spot}</td>
-                  <td className="py-3 px-4 font-mono text-sm">{booking.vehicle}</td>
-                  <td className="py-3 px-4 text-gray-600">
-                    <div>{booking.date}</div>
-                    <div className="text-xs text-gray-500">{booking.time}</div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      booking.status === 'Active' ? 'bg-green-100 text-green-800' :
-                      booking.status === 'Completed' ? 'bg-blue-100 text-blue-800' :
-                      booking.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {booking.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 font-semibold text-gray-900">{booking.amount}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center space-x-1">
-                      <button className="p-1 hover:bg-gray-200 rounded transition-colors">
-                        <Eye className="h-4 w-4 text-gray-500" />
-                      </button>
-                      {booking.status === 'Active' && (
-                        <button className="p-1 hover:bg-red-100 rounded transition-colors">
-                          <AlertTriangle className="h-4 w-4 text-red-500" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+        {myBookings.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Booking ID</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Spot</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Date & Time</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Status</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Amount</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {myBookings.map((booking) => {
+                  const spot = mySpots.find(s => s.id === booking.spotId);
+                  return (
+                    <tr key={booking.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4 font-mono text-sm">{booking.id}</td>
+                      <td className="py-3 px-4 text-gray-900">{spot?.name}</td>
+                      <td className="py-3 px-4 text-gray-600">
+                        <div>{new Date(booking.startTime).toLocaleDateString()}</div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(booking.startTime).toLocaleTimeString()} - {new Date(booking.endTime).toLocaleTimeString()}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          booking.status === 'active' ? 'bg-green-100 text-green-800' :
+                          booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                          booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-gray-900">${booking.totalCost}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-1">
+                          <button className="p-1 hover:bg-gray-200 rounded transition-colors">
+                            <Eye className="h-4 w-4 text-gray-500" />
+                          </button>
+                          {booking.status === 'active' && (
+                            <button className="p-1 hover:bg-red-100 rounded transition-colors">
+                              <AlertTriangle className="h-4 w-4 text-red-500" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No bookings yet
+            </h3>
+            <p className="text-gray-600">
+              Bookings for your parking spots will appear here
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -382,62 +454,29 @@ export const AdminDashboard: React.FC = () => {
           <h3 className="text-lg font-semibold text-gray-900">Reviews & Feedback</h3>
           <div className="flex items-center space-x-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">4.6</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {mySpots.length > 0 ? (mySpots.reduce((sum, spot) => sum + spot.rating, 0) / mySpots.length).toFixed(1) : '0.0'}
+              </div>
               <div className="flex items-center space-x-1">
                 {[...Array(5)].map((_, i) => (
                   <Star key={i} className={`h-4 w-4 ${i < 4 ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
                 ))}
               </div>
-              <div className="text-sm text-gray-500">128 reviews</div>
+              <div className="text-sm text-gray-500">
+                {mySpots.reduce((sum, spot) => sum + spot.reviewCount, 0)} reviews
+              </div>
             </div>
           </div>
         </div>
         
-        <div className="space-y-4">
-          {[
-            { customer: 'John D.', rating: 5, comment: 'Excellent parking facility with great security!', spot: 'Central Plaza', date: '2 days ago', replied: false },
-            { customer: 'Sarah M.', rating: 4, comment: 'Good location and clean facilities. The EV charging was convenient.', spot: 'Central Plaza', date: '1 week ago', replied: true },
-            { customer: 'Mike R.', rating: 5, comment: 'Perfect for airport trips. Shuttle service was excellent.', spot: 'Airport Express', date: '2 weeks ago', replied: false },
-          ].map((review, index) => (
-            <div key={index} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="flex items-center space-x-2 mb-1">
-                    <span className="font-semibold text-gray-900">{review.customer}</span>
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-4 w-4 ${
-                            i < review.rating
-                              ? 'text-yellow-400 fill-current'
-                              : 'text-gray-300'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-1">{review.spot} • {review.date}</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {review.replied && (
-                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                      Replied
-                    </span>
-                  )}
-                  <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                    <MoreHorizontal className="h-4 w-4 text-gray-500" />
-                  </button>
-                </div>
-              </div>
-              <p className="text-gray-700 mb-3">{review.comment}</p>
-              {!review.replied && (
-                <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                  Reply to review
-                </button>
-              )}
-            </div>
-          ))}
+        <div className="text-center py-12">
+          <Star className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            No reviews yet
+          </h3>
+          <p className="text-gray-600">
+            Customer reviews for your parking spots will appear here
+          </p>
         </div>
       </div>
     </div>
@@ -460,69 +499,84 @@ export const AdminDashboard: React.FC = () => {
               <DollarSign className="h-5 w-5 text-green-600" />
               <span className="font-medium text-green-900">Revenue</span>
             </div>
-            <div className="text-2xl font-bold text-green-900">$12,450</div>
-            <div className="text-sm text-green-700">This month</div>
+            <div className="text-2xl font-bold text-green-900">
+              ${myBookings.reduce((sum, booking) => sum + booking.totalCost, 0)}
+            </div>
+            <div className="text-sm text-green-700">Total earned</div>
           </div>
           <div className="bg-blue-50 rounded-lg p-4">
             <div className="flex items-center space-x-2 mb-2">
               <Calendar className="h-5 w-5 text-blue-600" />
               <span className="font-medium text-blue-900">Bookings</span>
             </div>
-            <div className="text-2xl font-bold text-blue-900">342</div>
-            <div className="text-sm text-blue-700">This month</div>
+            <div className="text-2xl font-bold text-blue-900">{myBookings.length}</div>
+            <div className="text-sm text-blue-700">Total bookings</div>
           </div>
           <div className="bg-purple-50 rounded-lg p-4">
             <div className="flex items-center space-x-2 mb-2">
-              <Users className="h-5 w-5 text-purple-600" />
-              <span className="font-medium text-purple-900">Customers</span>
+              <MapPin className="h-5 w-5 text-purple-600" />
+              <span className="font-medium text-purple-900">Spots</span>
             </div>
-            <div className="text-2xl font-bold text-purple-900">156</div>
-            <div className="text-sm text-purple-700">Unique visitors</div>
+            <div className="text-2xl font-bold text-purple-900">{mySpots.length}</div>
+            <div className="text-sm text-purple-700">Active spots</div>
           </div>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
           <div>
-            <h4 className="font-semibold text-gray-900 mb-3">Revenue by Period</h4>
+            <h4 className="font-semibold text-gray-900 mb-3">Revenue by Spot</h4>
             <div className="space-y-2">
-              {[
-                { period: 'Today', amount: '$240', percentage: 85 },
-                { period: 'This Week', amount: '$1,680', percentage: 92 },
-                { period: 'This Month', amount: '$12,450', percentage: 78 },
-                { period: 'This Year', amount: '$89,320', percentage: 65 },
-              ].map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="font-medium text-gray-900">{item.period}</span>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-24 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full" 
-                        style={{ width: `${item.percentage}%` }}
-                      ></div>
+              {mySpots.map((spot) => {
+                const spotBookings = myBookings.filter(b => b.spotId === spot.id);
+                const revenue = spotBookings.reduce((sum, booking) => sum + booking.totalCost, 0);
+                const maxRevenue = Math.max(...mySpots.map(s => 
+                  myBookings.filter(b => b.spotId === s.id).reduce((sum, booking) => sum + booking.totalCost, 0)
+                ), 1);
+                const percentage = (revenue / maxRevenue) * 100;
+                
+                return (
+                  <div key={spot.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span className="font-medium text-gray-900">{spot.name}</span>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full" 
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+                      <span className="font-semibold text-gray-900 w-16 text-right">${revenue}</span>
                     </div>
-                    <span className="font-semibold text-gray-900 w-16 text-right">{item.amount}</span>
                   </div>
+                );
+              })}
+              {mySpots.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <p>No data available</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
           
           <div>
-            <h4 className="font-semibold text-gray-900 mb-3">Top Performing Spots</h4>
+            <h4 className="font-semibold text-gray-900 mb-3">Booking Status Distribution</h4>
             <div className="space-y-2">
-              {[
-                { name: 'Central Plaza', bookings: 89, revenue: '$4,200' },
-                { name: 'Airport Express', bookings: 156, revenue: '$8,200' },
-                { name: 'Mall Parking', bookings: 45, revenue: '$2,100' },
-              ].map((spot, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <div className="font-medium text-gray-900">{spot.name}</div>
-                    <div className="text-sm text-gray-600">{spot.bookings} bookings</div>
+              {['active', 'pending', 'completed', 'cancelled'].map((status) => {
+                const count = myBookings.filter(b => b.status === status).length;
+                const percentage = myBookings.length > 0 ? (count / myBookings.length) * 100 : 0;
+                
+                return (
+                  <div key={status} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <div className="font-medium text-gray-900 capitalize">{status}</div>
+                      <div className="text-sm text-gray-600">{count} bookings</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold text-gray-900">{percentage.toFixed(1)}%</div>
+                    </div>
                   </div>
-                  <div className="font-semibold text-gray-900">{spot.revenue}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -541,24 +595,19 @@ export const AdminDashboard: React.FC = () => {
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                <input type="text" defaultValue="John Smith" className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                <input 
+                  type="text" 
+                  defaultValue={user?.name || ''} 
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" 
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input type="email" defaultValue="john@example.com" className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-medium text-gray-900 mb-3">Payment Settings</h4>
-            <div className="p-4 border border-gray-200 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">Bank Account</p>
-                  <p className="text-sm text-gray-600">**** **** **** 1234</p>
-                </div>
-                <button className="text-blue-600 hover:text-blue-800 font-medium">Update</button>
+                <input 
+                  type="email" 
+                  defaultValue={user?.email || ''} 
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" 
+                />
               </div>
             </div>
           </div>
@@ -649,11 +698,10 @@ export const AdminDashboard: React.FC = () => {
         {/* Content */}
         {renderContent()}
 
-        {/* QR Scanner Modal */}
-        {showQRScanner && (
-          <QRScanner
-            onScan={handleQRScan}
-            onClose={() => setShowQRScanner(false)}
+        {/* Entry Validation System Modal */}
+        {showValidationSystem && (
+          <EntryValidationSystem
+            onClose={() => setShowValidationSystem(false)}
           />
         )}
       </div>

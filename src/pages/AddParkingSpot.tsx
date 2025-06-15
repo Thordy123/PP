@@ -14,11 +14,15 @@ import {
   Umbrella,
   Wifi,
   Coffee,
-  Wrench
+  Wrench,
+  Save
 } from 'lucide-react';
+import { useAppStore } from '../store/AppStore';
 
 export const AddParkingSpot: React.FC = () => {
   const navigate = useNavigate();
+  const { addParkingSpot } = useAppStore();
+  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -31,22 +35,7 @@ export const AddParkingSpot: React.FC = () => {
     phone: '',
     amenities: [] as string[],
     images: [] as string[],
-    operatingHours: {
-      monday: { open: '00:00', close: '23:59', closed: false },
-      tuesday: { open: '00:00', close: '23:59', closed: false },
-      wednesday: { open: '00:00', close: '23:59', closed: false },
-      thursday: { open: '00:00', close: '23:59', closed: false },
-      friday: { open: '00:00', close: '23:59', closed: false },
-      saturday: { open: '00:00', close: '23:59', closed: false },
-      sunday: { open: '00:00', close: '23:59', closed: false },
-    },
-    features: {
-      allowExtensions: true,
-      requireQREntry: true,
-      plateRestriction: false,
-      valetService: false,
-      carWash: false,
-    }
+    openingHours: '24/7',
   });
 
   const availableAmenities = [
@@ -56,6 +45,8 @@ export const AddParkingSpot: React.FC = () => {
     { id: 'wifi', name: 'Free WiFi', icon: Wifi },
     { id: 'cafe', name: 'Cafe Nearby', icon: Coffee },
     { id: 'maintenance', name: 'Car Maintenance', icon: Wrench },
+    { id: 'valet', name: 'Valet Service', icon: Car },
+    { id: 'elevator', name: 'Elevator Access', icon: Car },
   ];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -78,33 +69,28 @@ export const AddParkingSpot: React.FC = () => {
     }));
   };
 
-  const handleOperatingHoursChange = (day: string, field: string, value: string | boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      operatingHours: {
-        ...prev.operatingHours,
-        [day]: {
-          ...prev.operatingHours[day as keyof typeof prev.operatingHours],
-          [field]: value
-        }
-      }
-    }));
-  };
-
-  const handleFeatureToggle = (feature: string) => {
-    setFormData(prev => ({
-      ...prev,
-      features: {
-        ...prev.features,
-        [feature]: !prev.features[feature as keyof typeof prev.features]
-      }
-    }));
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Creating parking spot:', formData);
-    // In a real app, this would save to the database
+    
+    if (!formData.name || !formData.address || formData.price <= 0 || formData.totalSlots <= 0) {
+      alert('Please fill in all required fields with valid values');
+      return;
+    }
+
+    // Add default images if none provided
+    const defaultImages = [
+      'https://images.pexels.com/photos/753876/pexels-photo-753876.jpeg?auto=compress&cs=tinysrgb&w=800',
+      'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?auto=compress&cs=tinysrgb&w=800'
+    ];
+
+    const spotData = {
+      ...formData,
+      images: formData.images.length > 0 ? formData.images : defaultImages,
+      lat: formData.lat || 40.7589 + (Math.random() - 0.5) * 0.1, // Random location near NYC
+      lng: formData.lng || -73.9851 + (Math.random() - 0.5) * 0.1,
+    };
+
+    addParkingSpot(spotData);
     alert('Parking spot created successfully!');
     navigate('/admin');
   };
@@ -216,7 +202,7 @@ export const AddParkingSpot: React.FC = () => {
                 />
               </div>
               <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-700 mb-2">📍 Map Location Picker</p>
+                <p className="text-sm text-blue-700 mb-2">📍 Location will be automatically geocoded</p>
                 <p className="text-xs text-blue-600">In a real application, this would integrate with Google Maps API for precise location selection.</p>
               </div>
             </div>
@@ -283,45 +269,18 @@ export const AddParkingSpot: React.FC = () => {
                 <Clock className="h-5 w-5 mr-2" />
                 Operating Hours
               </h3>
-              <div className="space-y-4">
-                {Object.entries(formData.operatingHours).map(([day, hours]) => (
-                  <div key={day} className="flex items-center space-x-4">
-                    <div className="w-24">
-                      <span className="text-sm font-medium text-gray-700 capitalize">
-                        {day}
-                      </span>
-                    </div>
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={!hours.closed}
-                        onChange={(e) => handleOperatingHoursChange(day, 'closed', !e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                      />
-                      <span className="ml-2 text-sm text-gray-600">Open</span>
-                    </label>
-                    {!hours.closed && (
-                      <>
-                        <input
-                          type="time"
-                          value={hours.open}
-                          onChange={(e) => handleOperatingHoursChange(day, 'open', e.target.value)}
-                          className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
-                        <span className="text-gray-500">to</span>
-                        <input
-                          type="time"
-                          value={hours.close}
-                          onChange={(e) => handleOperatingHoursChange(day, 'close', e.target.value)}
-                          className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        />
-                      </>
-                    )}
-                    {hours.closed && (
-                      <span className="text-red-600 text-sm">Closed</span>
-                    )}
-                  </div>
-                ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hours
+                </label>
+                <input
+                  type="text"
+                  name="openingHours"
+                  value={formData.openingHours}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 6:00 AM - 11:00 PM or 24/7"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
               </div>
             </div>
 
@@ -385,42 +344,9 @@ export const AddParkingSpot: React.FC = () => {
                   </div>
                 </button>
               </div>
-            </div>
-
-            {/* Features */}
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Features & Settings</h3>
-              <div className="space-y-4">
-                {Object.entries(formData.features).map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between py-2">
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {key === 'allowExtensions' && 'Allow Time Extensions'}
-                        {key === 'requireQREntry' && 'Require QR Code Entry'}
-                        {key === 'plateRestriction' && 'License Plate Restriction'}
-                        {key === 'valetService' && 'Valet Service Available'}
-                        {key === 'carWash' && 'Car Wash Service'}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {key === 'allowExtensions' && 'Users can extend their parking time'}
-                        {key === 'requireQREntry' && 'Entry requires QR code or PIN validation'}
-                        {key === 'plateRestriction' && 'Restrict access to registered license plates only'}
-                        {key === 'valetService' && 'Professional valet parking service'}
-                        {key === 'carWash' && 'On-site car washing services'}
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={value}
-                        onChange={() => handleFeatureToggle(key)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm text-gray-600">
+                Add photos of your parking area. If no images are added, default images will be used.
+              </p>
             </div>
 
             {/* Submit Buttons */}
@@ -434,9 +360,10 @@ export const AddParkingSpot: React.FC = () => {
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
               >
-                Create Parking Spot
+                <Save className="h-5 w-5" />
+                <span>Create Parking Spot</span>
               </button>
             </div>
           </form>

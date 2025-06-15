@@ -11,51 +11,105 @@ import {
   Copy,
   Download
 } from 'lucide-react';
-import { mockParkingSpots, mockUser } from '../data/mockData';
+import { useAppStore } from '../store/AppStore';
 import { QRCodeGenerator } from '../components/QRCodeGenerator';
 
 export const BookingPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { parkingSpots, user, createBooking } = useAppStore();
+  
   const [step, setStep] = useState<'time' | 'payment' | 'success'>('time');
-  const [selectedVehicle, setSelectedVehicle] = useState(mockUser.vehicles[0].id);
+  const [selectedVehicle, setSelectedVehicle] = useState(user?.vehicles[0]?.id || '');
   const [startDate, setStartDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('card');
-  const [bookingId] = useState('BK' + Date.now());
-  const [qrCode] = useState(`${bookingId}-${id}-${Date.now()}`);
-  const [pin] = useState(Math.floor(1000 + Math.random() * 9000).toString());
+  const [createdBooking, setCreatedBooking] = useState<any>(null);
   
-  const spot = mockParkingSpots.find(s => s.id === id);
+  const spot = parkingSpots.find(s => s.id === id);
 
   if (!spot) {
-    return <div>Parking spot not found</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Parking spot not found
+          </h2>
+          <button 
+            onClick={() => navigate('/')}
+            className="text-blue-600 hover:text-blue-800"
+          >
+            Return to home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    navigate('/login');
+    return null;
   }
 
   const calculateDuration = () => {
     if (!startTime || !endTime) return 0;
     const start = new Date(`2024-01-01 ${startTime}`);
     const end = new Date(`2024-01-01 ${endTime}`);
-    return (end.getTime() - start.getTime()) / (1000 * 60 * 60); // hours
+    const diffMs = end.getTime() - start.getTime();
+    return Math.max(0, diffMs / (1000 * 60 * 60)); // hours
   };
 
   const calculateTotal = () => {
     const duration = calculateDuration();
-    return Math.round(duration * spot.price * 100) / 100;
+    let cost = 0;
+    
+    if (spot.priceType === 'hour') {
+      cost = duration * spot.price;
+    } else if (spot.priceType === 'day') {
+      cost = Math.ceil(duration / 24) * spot.price;
+    } else if (spot.priceType === 'month') {
+      cost = Math.ceil(duration / (24 * 30)) * spot.price;
+    }
+    
+    return Math.round(cost * 100) / 100;
   };
 
   const handleBooking = () => {
     if (step === 'time') {
+      if (!startDate || !startTime || !endTime || !selectedVehicle) {
+        alert('Please fill in all required fields');
+        return;
+      }
+      
+      if (calculateDuration() <= 0) {
+        alert('End time must be after start time');
+        return;
+      }
+      
       setStep('payment');
     } else if (step === 'payment') {
+      // Create the booking
+      const startDateTime = new Date(`${startDate}T${startTime}`).toISOString();
+      const endDateTime = new Date(`${startDate}T${endTime}`).toISOString();
+      
+      const booking = createBooking({
+        spotId: spot.id,
+        userId: user.id,
+        startTime: startDateTime,
+        endTime: endDateTime,
+        vehicleId: selectedVehicle,
+        totalCost: calculateTotal(),
+        status: 'pending'
+      });
+      
+      setCreatedBooking(booking);
       setStep('success');
     }
   };
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
-    // You could add a toast notification here
     alert(`${type} copied to clipboard!`);
   };
 
@@ -64,7 +118,7 @@ export const BookingPage: React.FC = () => {
     alert('QR Code download functionality would be implemented here');
   };
 
-  if (step === 'success') {
+  if (step === 'success' && createdBooking) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
@@ -88,11 +142,15 @@ export const BookingPage: React.FC = () => {
               <p className="text-sm text-gray-600 mb-2">{spot.address}</p>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Date:</span>
-                <span className="font-medium">{startDate}</span>
+                <span className="font-medium">{new Date(startDate).toLocaleDateString()}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Time:</span>
                 <span className="font-medium">{startTime} - {endTime}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Duration:</span>
+                <span className="font-medium">{calculateDuration().toFixed(1)} hours</span>
               </div>
               <div className="flex justify-between text-sm pt-2 border-t border-gray-200 mt-2">
                 <span className="text-gray-600">Total:</span>
@@ -104,7 +162,7 @@ export const BookingPage: React.FC = () => {
             <div className="bg-blue-50 rounded-lg p-4 mb-4 text-center">
               <h4 className="font-semibold text-blue-900 mb-3">Entry QR Code</h4>
               <QRCodeGenerator 
-                value={qrCode} 
+                value={createdBooking.qrCode} 
                 size={160}
                 className="mb-3"
               />
@@ -120,7 +178,7 @@ export const BookingPage: React.FC = () => {
                   <span>Save QR</span>
                 </button>
                 <button
-                  onClick={() => copyToClipboard(qrCode, 'QR Code')}
+                  onClick={() => copyToClipboard(createdBooking.qrCode, 'QR Code')}
                   className="flex-1 flex items-center justify-center space-x-1 border border-blue-200 text-blue-600 py-2 px-3 rounded-lg text-sm font-medium hover:bg-blue-50 transition-colors"
                 >
                   <Copy className="h-4 w-4" />
@@ -137,23 +195,36 @@ export const BookingPage: React.FC = () => {
                   <span className="font-semibold text-orange-900">Backup PIN</span>
                 </div>
                 <button
-                  onClick={() => copyToClipboard(pin, 'PIN')}
+                  onClick={() => copyToClipboard(createdBooking.pin, 'PIN')}
                   className="p-1 hover:bg-orange-100 rounded transition-colors"
                 >
                   <Copy className="h-4 w-4 text-orange-600" />
                 </button>
               </div>
               <div className="text-3xl font-bold text-orange-900 text-center mb-2 font-mono tracking-wider">
-                {pin}
+                {createdBooking.pin}
               </div>
               <p className="text-sm text-orange-700 text-center">
                 Use this PIN if QR code doesn't work
               </p>
             </div>
 
+            {/* Booking ID */}
+            <div className="bg-gray-50 rounded-lg p-3 mb-6 text-center">
+              <p className="text-sm text-gray-600">
+                Booking ID: <span className="font-mono font-semibold">{createdBooking.id}</span>
+              </p>
+            </div>
+
             {/* Action Buttons */}
             <div className="space-y-3">
-              <button className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={() => {
+                  // In a real app, this would open navigation app
+                  alert('Opening navigation to parking location...');
+                }}
+                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              >
                 Navigate to Parking
               </button>
               <div className="grid grid-cols-2 gap-3">
@@ -170,13 +241,6 @@ export const BookingPage: React.FC = () => {
                   Book More
                 </button>
               </div>
-            </div>
-
-            {/* Booking ID */}
-            <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-              <p className="text-xs text-gray-500">
-                Booking ID: <span className="font-mono">{bookingId}</span>
-              </p>
             </div>
           </div>
         </div>
@@ -227,10 +291,15 @@ export const BookingPage: React.FC = () => {
             {/* Parking Spot Info */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <h3 className="font-semibold text-gray-900 mb-1">{spot.name}</h3>
-              <p className="text-sm text-gray-600">{spot.address}</p>
-              <p className="text-sm text-blue-600 font-medium">
-                ${spot.price}/{spot.priceType}
-              </p>
+              <p className="text-sm text-gray-600 mb-2">{spot.address}</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-blue-600 font-medium">
+                  ${spot.price}/{spot.priceType}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {spot.availableSlots} / {spot.totalSlots} available
+                </p>
+              </div>
             </div>
 
             {step === 'time' && (
@@ -252,6 +321,7 @@ export const BookingPage: React.FC = () => {
                       onChange={(e) => setStartDate(e.target.value)}
                       min={new Date().toISOString().split('T')[0]}
                       className="w-full px-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      required
                     />
                   </div>
 
@@ -267,6 +337,7 @@ export const BookingPage: React.FC = () => {
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
                         className="w-full px-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        required
                       />
                     </div>
                     <div>
@@ -278,6 +349,7 @@ export const BookingPage: React.FC = () => {
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
                         className="w-full px-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        required
                       />
                     </div>
                   </div>
@@ -292,8 +364,10 @@ export const BookingPage: React.FC = () => {
                       value={selectedVehicle}
                       onChange={(e) => setSelectedVehicle(e.target.value)}
                       className="w-full px-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      required
                     >
-                      {mockUser.vehicles.map((vehicle) => (
+                      <option value="">Select a vehicle</option>
+                      {user.vehicles.map((vehicle) => (
                         <option key={vehicle.id} value={vehicle.id}>
                           {vehicle.make} {vehicle.model} - {vehicle.licensePlate}
                         </option>
@@ -302,7 +376,7 @@ export const BookingPage: React.FC = () => {
                   </div>
 
                   {/* Cost Summary */}
-                  {startTime && endTime && (
+                  {startTime && endTime && calculateDuration() > 0 && (
                     <div className="bg-blue-50 rounded-lg p-4">
                       <div className="flex justify-between items-center">
                         <div>
@@ -368,7 +442,7 @@ export const BookingPage: React.FC = () => {
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span>Date:</span>
-                        <span>{startDate}</span>
+                        <span>{new Date(startDate).toLocaleDateString()}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Time:</span>
@@ -377,6 +451,10 @@ export const BookingPage: React.FC = () => {
                       <div className="flex justify-between">
                         <span>Duration:</span>
                         <span>{calculateDuration().toFixed(1)} hours</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Vehicle:</span>
+                        <span>{user.vehicles.find(v => v.id === selectedVehicle)?.licensePlate}</span>
                       </div>
                       <div className="flex justify-between font-semibold text-base pt-2 border-t">
                         <span>Total:</span>
@@ -401,7 +479,7 @@ export const BookingPage: React.FC = () => {
               <button
                 onClick={handleBooking}
                 disabled={
-                  (step === 'time' && (!startDate || !startTime || !endTime)) ||
+                  (step === 'time' && (!startDate || !startTime || !endTime || !selectedVehicle || calculateDuration() <= 0)) ||
                   (step === 'payment' && !paymentMethod)
                 }
                 className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"

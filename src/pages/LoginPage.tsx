@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { MapPin, Eye, EyeOff, Mail, Lock, User, Building2, Car } from 'lucide-react';
+import { useAppStore } from '../store/AppStore';
 
 export const LoginPage: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'customer-register' | 'owner-register'>('login');
@@ -15,9 +16,11 @@ export const LoginPage: React.FC = () => {
     businessName: '',
     businessAddress: ''
   });
+  
   const navigate = useNavigate();
+  const { login, setUserType } = useAppStore();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (mode !== 'login' && formData.password !== formData.confirmPassword) {
@@ -25,23 +28,34 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
-    // In a real app, this would handle authentication
-    console.log('Form submitted:', { mode, formData });
-    
-    // Simulate successful login/registration and redirect based on account type
-    if (mode === 'owner-register') {
-      // Property owner registration - go to admin dashboard
-      navigate('/admin');
-    } else if (mode === 'login') {
-      // For login, check email patterns to determine account type
-      if (formData.email.includes('owner') || formData.email.includes('admin') || formData.email.includes('property')) {
+    if (mode !== 'login' && (!formData.name || !formData.email || !formData.password)) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      if (mode === 'owner-register') {
+        setUserType('admin');
+        await login(formData.email, formData.password);
         navigate('/admin');
+      } else if (mode === 'login') {
+        // Determine user type based on email or use demo credentials
+        if (formData.email.includes('owner') || formData.email.includes('admin') || formData.email.includes('property')) {
+          setUserType('admin');
+          await login(formData.email, formData.password);
+          navigate('/admin');
+        } else {
+          setUserType('customer');
+          await login(formData.email, formData.password);
+          navigate('/');
+        }
       } else {
+        setUserType('customer');
+        await login(formData.email, formData.password);
         navigate('/');
       }
-    } else {
-      // Customer registration - go to main app
-      navigate('/');
+    } catch (error) {
+      alert('Login failed. Please try again.');
     }
   };
 
@@ -67,6 +81,15 @@ export const LoginPage: React.FC = () => {
   const switchMode = (newMode: typeof mode) => {
     setMode(newMode);
     resetForm();
+  };
+
+  const handleDemoLogin = (userType: 'customer' | 'admin') => {
+    const email = userType === 'admin' ? 'owner@demo.com' : 'driver@demo.com';
+    setFormData(prev => ({ ...prev, email, password: 'demo123' }));
+    setUserType(userType);
+    login(email, 'demo123').then(() => {
+      navigate(userType === 'admin' ? '/admin' : '/');
+    });
   };
 
   return (
@@ -415,17 +438,34 @@ export const LoginPage: React.FC = () => {
         <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
           <h4 className="font-semibold text-blue-900 mb-3 flex items-center">
             <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-            Demo Credentials
+            Quick Demo Access
           </h4>
-          <div className="text-sm text-blue-800 space-y-2">
-            <div className="flex justify-between items-center">
-              <span><strong>Driver:</strong> driver@demo.com</span>
-              <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">demo123</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span><strong>Owner:</strong> owner@demo.com</span>
-              <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">demo123</span>
-            </div>
+          <div className="space-y-2">
+            <button
+              onClick={() => handleDemoLogin('customer')}
+              className="w-full text-left p-3 bg-white rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-blue-900">Driver Account</span>
+                  <p className="text-xs text-blue-700">Find and book parking spots</p>
+                </div>
+                <Car className="h-5 w-5 text-blue-600" />
+              </div>
+            </button>
+            
+            <button
+              onClick={() => handleDemoLogin('admin')}
+              className="w-full text-left p-3 bg-white rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-blue-900">Owner Account</span>
+                  <p className="text-xs text-blue-700">Manage parking spaces</p>
+                </div>
+                <Building2 className="h-5 w-5 text-blue-600" />
+              </div>
+            </button>
           </div>
         </div>
 
