@@ -24,17 +24,20 @@ function App() {
           <Route path="/*" element={
             <>
               <Navbar />
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/spot/:id" element={<ParkingSpotDetail />} />
-                <Route path="/book/:id" element={<BookingPage />} />
-                <Route path="/bookings" element={<BookingsPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/add-spot" element={<AddParkingSpot />} />
-                <Route path="/admin/edit-spot/:id" element={<EditParkingSpot />} />
-                <Route path="/admin/availability/:id" element={<ManageAvailability />} />
-              </Routes>
+              {/* เพิ่ม div นี้เพื่อดันเนื้อหาลงมา */}
+              <div className="pt-16"> {/* <--- เพิ่มคลาส pt-16 ที่นี่ */}
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/spot/:id" element={<ParkingSpotDetail />} />
+                  <Route path="/book/:id" element={<BookingPage />} />
+                  <Route path="/bookings" element={<BookingsPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/add-spot" element={<AddParkingSpot />} />
+                  <Route path="/admin/edit-spot/:id" element={<EditParkingSpot />} />
+                  <Route path="/admin/availability/:id" element={<ManageAvailability />} />
+                </Routes>
+              </div>
             </>
           } />
         </Routes>

@@ -90,16 +90,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
                   <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-blue-600 rounded-br-lg"></div>
                 </div>
               </div>
-              <p className="text-gray-600 mb-4">
-                {isScanning ? 'Scanning QR code...' : 'Position QR code within the frame'}
-              </p>
-              <button
-                onClick={simulateQRScan}
-                disabled={isScanning}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
-              >
-                {isScanning ? 'Scanning...' : 'Start Scan'}
-              </button>
             </div>
           ) : (
             <form onSubmit={handlePinSubmit}>

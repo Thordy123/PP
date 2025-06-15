@@ -1,87 +1,161 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
+import { MapPin, Eye, EyeOff, Mail, Lock, User, Building2, Car } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [mode, setMode] = useState<'login' | 'customer-register' | 'owner-register'>('login');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
     phone: '',
-    userType: 'customer'
+    businessName: '',
+    businessAddress: ''
   });
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would handle authentication
-    console.log('Form submitted:', formData);
     
-    // Simulate successful login/registration
-    if (formData.userType === 'admin') {
+    if (mode !== 'login' && formData.password !== formData.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+
+    // In a real app, this would handle authentication
+    console.log('Form submitted:', { mode, formData });
+    
+    // Simulate successful login/registration and redirect based on account type
+    if (mode === 'owner-register') {
+      // Property owner registration - go to admin dashboard
       navigate('/admin');
+    } else if (mode === 'login') {
+      // For login, check email patterns to determine account type
+      if (formData.email.includes('owner') || formData.email.includes('admin') || formData.email.includes('property')) {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } else {
+      // Customer registration - go to main app
       navigate('/');
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
       ...prev,
       [e.target.name]: e.target.value
     }));
   };
 
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      phone: '',
+      businessName: '',
+      businessAddress: ''
+    });
+  };
+
+  const switchMode = (newMode: typeof mode) => {
+    setMode(newMode);
+    resetForm();
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-2 mb-4">
-            <MapPin className="h-10 w-10 text-blue-600" />
-            <span className="text-3xl font-bold text-gray-900">ParkPass</span>
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+              <MapPin className="h-7 w-7 text-white" />
+            </div>
+            <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              ParkPass
+            </span>
           </div>
           <p className="text-gray-600">
-            {isLogin ? 'Welcome back!' : 'Create your account'}
+            {mode === 'login' && 'Welcome back to the future of parking'}
+            {mode === 'customer-register' && 'Find and book parking spots instantly'}
+            {mode === 'owner-register' && 'Start earning from your parking spaces'}
           </p>
         </div>
 
+        {/* Account Type Selection (only show when not in login mode) */}
+        {mode !== 'login' && (
+          <div className="mb-6">
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => switchMode('customer-register')}
+                className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                  mode === 'customer-register'
+                    ? 'border-blue-500 bg-blue-50 shadow-md'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <Car className={`h-6 w-6 mx-auto mb-2 ${
+                  mode === 'customer-register' ? 'text-blue-600' : 'text-gray-600'
+                }`} />
+                <div className={`font-semibold ${
+                  mode === 'customer-register' ? 'text-blue-900' : 'text-gray-900'
+                }`}>
+                  Driver
+                </div>
+                <div className="text-xs text-gray-600 mt-1">
+                  Find & book parking
+                </div>
+              </button>
+              
+              <button
+                onClick={() => switchMode('owner-register')}
+                className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                  mode === 'owner-register'
+                    ? 'border-blue-500 bg-blue-50 shadow-md'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <Building2 className={`h-6 w-6 mx-auto mb-2 ${
+                  mode === 'owner-register' ? 'text-blue-600' : 'text-gray-600'
+                }`} />
+                <div className={`font-semibold ${
+                  mode === 'owner-register' ? 'text-blue-900' : 'text-gray-900'
+                }`}>
+                  Owner
+                </div>
+                <div className="text-xs text-gray-600 mt-1">
+                  List your spaces
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Form Container */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {isLogin ? 'Sign In' : 'Sign Up'}
+              {mode === 'login' && 'Sign In'}
+              {mode === 'customer-register' && 'Create Driver Account'}
+              {mode === 'owner-register' && 'Create Owner Account'}
             </h2>
             <p className="text-gray-600">
-              {isLogin 
-                ? 'Enter your credentials to access your account' 
-                : 'Fill in your details to create an account'
-              }
+              {mode === 'login' && 'Enter your credentials to access your account'}
+              {mode === 'customer-register' && 'Join thousands of drivers finding perfect parking'}
+              {mode === 'owner-register' && 'Start monetizing your parking spaces today'}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* User Type Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Account Type
-              </label>
-              <select
-                name="userType"
-                value={formData.userType}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-              >
-                <option value="customer">Customer</option>
-                <option value="admin">Parking Owner</option>
-              </select>
-            </div>
-
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Name Field (Registration only) */}
-            {!isLogin && (
+            {mode !== 'login' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Full Name
@@ -94,8 +168,29 @@ export const LoginPage: React.FC = () => {
                     value={formData.name}
                     onChange={handleInputChange}
                     placeholder="Enter your full name"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                    required={!isLogin}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Business Name (Owner registration only) */}
+            {mode === 'owner-register' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Business Name
+                </label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    name="businessName"
+                    value={formData.businessName}
+                    onChange={handleInputChange}
+                    placeholder="Your business or property name"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300"
+                    required
                   />
                 </div>
               </div>
@@ -114,14 +209,14 @@ export const LoginPage: React.FC = () => {
                   value={formData.email}
                   onChange={handleInputChange}
                   placeholder="Enter your email"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300"
                   required
                 />
               </div>
             </div>
 
             {/* Phone Field (Registration only) */}
-            {!isLogin && (
+            {mode !== 'login' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Phone Number
@@ -132,8 +227,26 @@ export const LoginPage: React.FC = () => {
                   value={formData.phone}
                   onChange={handleInputChange}
                   placeholder="Enter your phone number"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                  required={!isLogin}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300"
+                  required
+                />
+              </div>
+            )}
+
+            {/* Business Address (Owner registration only) */}
+            {mode === 'owner-register' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Business Address
+                </label>
+                <input
+                  type="text"
+                  name="businessAddress"
+                  value={formData.businessAddress}
+                  onChange={handleInputChange}
+                  placeholder="Primary business location"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300"
+                  required
                 />
               </div>
             )}
@@ -151,7 +264,7 @@ export const LoginPage: React.FC = () => {
                   value={formData.password}
                   onChange={handleInputChange}
                   placeholder="Enter your password"
-                  className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                  className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300"
                   required
                 />
                 <button
@@ -162,10 +275,15 @@ export const LoginPage: React.FC = () => {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
+              {mode !== 'login' && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Must be at least 8 characters with letters and numbers
+                </p>
+              )}
             </div>
 
             {/* Confirm Password Field (Registration only) */}
-            {!isLogin && (
+            {mode !== 'login' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Confirm Password
@@ -173,42 +291,56 @@ export const LoginPage: React.FC = () => {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showConfirmPassword ? 'text' : 'password'}
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleInputChange}
                     placeholder="Confirm your password"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                    required={!isLogin}
+                    className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 hover:border-gray-300"
+                    required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* Forgot Password (Login only) */}
-            {isLogin && (
+            {/* Remember Me / Forgot Password (Login only) */}
+            {mode === 'login' && (
               <div className="flex items-center justify-between">
                 <label className="flex items-center">
-                  <input type="checkbox" className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" />
+                  <input 
+                    type="checkbox" 
+                    className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" 
+                  />
                   <span className="ml-2 text-sm text-gray-600">Remember me</span>
                 </label>
-                <button type="button" className="text-sm text-blue-600 hover:text-blue-800 transition-colors">
+                <button type="button" className="text-sm text-blue-600 hover:text-blue-800 transition-colors font-medium">
                   Forgot password?
                 </button>
               </div>
             )}
 
             {/* Terms and Conditions (Registration only) */}
-            {!isLogin && (
-              <div className="flex items-start">
-                <input type="checkbox" required className="mt-1 rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" />
-                <span className="ml-2 text-sm text-gray-600">
+            {mode !== 'login' && (
+              <div className="flex items-start space-x-3">
+                <input 
+                  type="checkbox" 
+                  required 
+                  className="mt-1 rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" 
+                />
+                <span className="text-sm text-gray-600 leading-relaxed">
                   I agree to the{' '}
-                  <button type="button" className="text-blue-600 hover:text-blue-800 transition-colors">
+                  <button type="button" className="text-blue-600 hover:text-blue-800 transition-colors font-medium">
                     Terms of Service
                   </button>{' '}
                   and{' '}
-                  <button type="button" className="text-blue-600 hover:text-blue-800 transition-colors">
+                  <button type="button" className="text-blue-600 hover:text-blue-800 transition-colors font-medium">
                     Privacy Policy
                   </button>
                 </span>
@@ -218,23 +350,44 @@ export const LoginPage: React.FC = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-4 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
-              {isLogin ? 'Sign In' : 'Create Account'}
+              {mode === 'login' && 'Sign In'}
+              {mode === 'customer-register' && 'Create Driver Account'}
+              {mode === 'owner-register' && 'Create Owner Account'}
             </button>
           </form>
 
           {/* Toggle Login/Register */}
           <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
-              <button
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
-              >
-                {isLogin ? 'Sign up' : 'Sign in'}
-              </button>
-            </p>
+            {mode === 'login' ? (
+              <p className="text-gray-600">
+                Don't have an account?{' '}
+                <button
+                  onClick={() => switchMode('customer-register')}
+                  className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
+                >
+                  Sign up as a driver
+                </button>
+                {' '}or{' '}
+                <button
+                  onClick={() => switchMode('owner-register')}
+                  className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
+                >
+                  list your parking space
+                </button>
+              </p>
+            ) : (
+              <p className="text-gray-600">
+                Already have an account?{' '}
+                <button
+                  onClick={() => switchMode('login')}
+                  className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
+                >
+                  Sign in
+                </button>
+              </p>
+            )}
           </div>
 
           {/* Social Login (Optional) */}
@@ -244,28 +397,63 @@ export const LoginPage: React.FC = () => {
                 <div className="w-full border-t border-gray-200" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                <span className="px-4 bg-white text-gray-500">Or continue with</span>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <button className="flex items-center justify-center px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <button className="flex items-center justify-center px-4 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200 hover:border-gray-300 hover:shadow-sm">
                 <span className="text-sm font-medium text-gray-700">Google</span>
               </button>
-              <button className="flex items-center justify-center px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <span className="text-sm font-medium text-gray-700">Facebook</span>
+              <button className="flex items-center justify-center px-4 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200 hover:border-gray-300 hover:shadow-sm">
+                <span className="text-sm font-medium text-gray-700">Apple</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* Demo Credentials */}
-        <div className="mt-6 bg-blue-50 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-900 mb-2">Demo Credentials</h4>
-          <div className="text-sm text-blue-800 space-y-1">
-            <p><strong>Customer:</strong> customer@demo.com / password123</p>
-            <p><strong>Admin:</strong> admin@demo.com / password123</p>
+        <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+          <h4 className="font-semibold text-blue-900 mb-3 flex items-center">
+            <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+            Demo Credentials
+          </h4>
+          <div className="text-sm text-blue-800 space-y-2">
+            <div className="flex justify-between items-center">
+              <span><strong>Driver:</strong> driver@demo.com</span>
+              <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">demo123</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span><strong>Owner:</strong> owner@demo.com</span>
+              <span className="font-mono text-xs bg-blue-100 px-2 py-1 rounded">demo123</span>
+            </div>
           </div>
         </div>
+
+        {/* Features Preview */}
+        {mode !== 'login' && (
+          <div className="mt-6 text-center">
+            <div className="grid grid-cols-3 gap-4 text-xs text-gray-600">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mb-1">
+                  <span className="text-green-600">✓</span>
+                </div>
+                <span>Instant Booking</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mb-1">
+                  <span className="text-green-600">✓</span>
+                </div>
+                <span>Secure Payments</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mb-1">
+                  <span className="text-green-600">✓</span>
+                </div>
+                <span>24/7 Support</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
